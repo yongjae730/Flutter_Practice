@@ -48,6 +48,11 @@ class MyAppState extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  void removeFavorite(WordPair pair) {
+    favorites.remove(pair);
+    notifyListeners();
+  }
 }
 
 class MyHomePage extends StatefulWidget {
@@ -91,7 +96,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 BottomNavigationBarItem(icon: Icon(Icons.home), label: "home"),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.favorite),
-                  label: "Favorate",
+                  label: "Favorite",
                 )
               ],
               currentIndex: selectedIndex,
@@ -207,17 +212,22 @@ class BigCard extends StatelessWidget {
       shadowColor: Colors.black, // 그림자 색상 설정
       child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Wrap(
-            children: [
-              Text(
-                pair.first,
-                style: style.copyWith(fontWeight: FontWeight.w200),
+          child: AnimatedSize(
+            duration: Duration(milliseconds: 200),
+            child: MergeSemantics(
+              child: Wrap(
+                children: [
+                  Text(
+                    pair.first,
+                    style: style.copyWith(fontWeight: FontWeight.w200),
+                  ),
+                  Text(
+                    pair.second,
+                    style: style.copyWith(fontWeight: FontWeight.bold),
+                  )
+                ],
               ),
-              Text(
-                pair.second,
-                style: style.copyWith(fontWeight: FontWeight.bold),
-              )
-            ],
+            ),
           )),
     );
   }
@@ -234,26 +244,93 @@ class FavoritePage extends StatelessWidget {
         child: Text('No favorite yet.'),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(30),
-          child: Text("You have" "${appState.favorites.length} favorites:"),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.all(30),
+        child: Text("You have" "${appState.favorites.length} favorites:"),
+      ),
+      Expanded(
+          child: (GridView(
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 400,
+          childAspectRatio: 400 / 80,
         ),
-        Expanded(
-          child: (
-            GridView(
-              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 400,
-                childAspectRatio: 400/80,
+        children: [
+          for (var pair in appState.favorites)
+            ListTile(
+              leading: IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  semanticLabel: 'Delete',
                 ),
+                color: theme.colorScheme.primary,
+                onPressed: () {
+                  appState.removeFavorite(pair);
+                },
+              ),
+              title: Text(
+                pair.asLowerCase,
+                semanticsLabel: pair.asPascalCase,
+              ),
             )
-          ))
-      ],
-    )
-          ),
-      ],
+        ],
+      )))
+    ]);
+  }
+}
+
+class HistoryListView extends StatefulWidget {
+  const HistoryListView({Key? key}) : super(key: key);
+  @override
+  State<StatefulWidget> createState() => _HistoryListViewState();
+}
+
+class _HistoryListViewState extends State<HistoryListView> {
+  final _key = GlobalKey();
+
+  static const Gradient _maskingGradient = LinearGradient(
+      colors: [Colors.transparent, Colors.black],
+      stops: [0.0, 0.5],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter);
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = context.watch<MyAppState>();
+    appState.historyListKey = _key;
+
+    return ShaderMask(
+      shaderCallback: (bounds) => _maskingGradient.createShader(bounds),
+      blendMode: BlendMode.dstIn,
+      child: AnimatedList(
+        key: _key,
+        reverse: true,
+        padding: EdgeInsets.only(top: 100),
+        initialItemCount: appState.history.length,
+        itemBuilder: (context, index, animation) {
+          final pair = appState.history[index];
+          return SizeTransition(
+            sizeFactor: animation,
+            child: Center(
+              child: TextButton.icon(
+                onPressed: () {
+                  appState.toggleFavorite();
+                },
+                icon: appState.favorites.contains(pair)
+                    ? Icon(
+                        Icons.favorite,
+                        size: 12,
+                      )
+                    : SizedBox(),
+                label: Text(
+                  pair.asLowerCase,
+                  semanticsLabel: pair.asPascalCase,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
